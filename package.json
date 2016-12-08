@@ -1,7 +1,7 @@
 {
-  "name": "homebridge-http-temperature",
-  "version": "0.0.3",
-  "description": "https plugin for homebridge",
+  "name": "homebridge-owl-thermostat",
+  "version": "0.0.1",
+  "description": "owl-intuition-c plugin for homebridge",
   "license": "ISC",
   "keywords": [
     "homebridge-plugin",
@@ -13,13 +13,13 @@
     "homebridge": ">=0.2.0"
   },
   "author": {
-    "name": "@metbosch"
+    "name": "@ZoneMR"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/metbosch/homebridge-http-temperature.git"
+    "url": "git:/github.com/ZoneMR/homebridge-owl-thermostat.git"
   },
   "dependencies": {
-    "request": "^2.5.0"
+    "xml2json": "^0.10.0"
   }
 }
