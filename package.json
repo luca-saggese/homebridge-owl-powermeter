@@ -1,23 +1,23 @@
 {
-  "name": "homebridge-owl-thermostat",
+  "name": "homebridge-owl-powermeter",
   "version": "0.0.1",
   "description": "owl-intuition-c plugin for homebridge",
   "license": "ISC",
   "keywords": [
     "homebridge-plugin",
     "http",
-    "temperature sensor"
+    "power meter"
   ],
   "engines": {
     "node": ">=0.12.0",
     "homebridge": ">=0.2.0"
   },
   "author": {
-    "name": "@ZoneMR"
+    "name": "@LvX"
   },
   "repository": {
     "type": "git",
-    "url": "git:/github.com/ZoneMR/homebridge-owl-thermostat.git"
+    "url": "git:/github.com/ZoneMR/homebridge-owl-powermeter.git"
   },
   "dependencies": {
     "xml2json": "^0.10.0"
