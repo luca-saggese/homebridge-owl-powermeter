@@ -6,10 +6,10 @@ var Service, Characteristic;
 module.exports = function(homebridge) {
     Service = homebridge.hap.Service;
     Characteristic = homebridge.hap.Characteristic;
-    homebridge.registerAccessory("homebridge-owl-thermostat", "OwlThermostat", OwlThermostat);
+    homebridge.registerAccessory("homebridge-owl-powermeter", "OwlPowerMeter", OwlPowerMeter);
 }
 
-function OwlThermostat(log, config) {
+function OwlPowerMeter(log, config) {
     this.log = log;
 
     // Info
@@ -17,13 +17,12 @@ function OwlThermostat(log, config) {
     this.manufacturer = config["manufacturer"] || "Owl";
     this.model = config["model"] || "Intuition-C";
     this.serial = config["serial"] || "Non-defined serial";
+    var that=this;
+    
 
-    // Cached Thermostat Data
-    this.currentHeatingCoolingState = Characteristic.CurrentHeatingCoolingState.OFF;
-    this.targetHeatingCoolingState = Characteristic.TargetHeatingCoolingState.AUTO;
-    this.currentTemperature = 10;
-    this.targetTemperature = 10;
-    this.temperatureDisplayUnits = Characteristic.TemperatureDisplayUnits.CELSIUS;
+    // Cached Energy Data
+    this.currentPower = 10;
+    this.currentEnergy = 10;
 
     // Control Socket
     this.owlIP = undefined;
@@ -31,7 +30,7 @@ function OwlThermostat(log, config) {
     this.udpkey = config["key"];
     this.owlsocket = dgram.createSocket('udp4');
 
-    // Monitor Thermostat
+    // Monitor Energy
     var LOCAL_BROADCAST_HOST = '224.192.32.19';
     var LOCAL_BROADCAST_PORT = 22600;
 
@@ -45,6 +44,57 @@ function OwlThermostat(log, config) {
         this.log("Listening")
     }.bind(this));
 
+    /*
+    {
+  "electricity": {
+    "-id": "12345678912C",
+    "timestamp": "1499337272",
+    "signal": {
+      "-rssi": "-42",
+      "-lqi": "0"
+    },
+    "battery": { "-level": "100%" },
+    "chan": [
+      {
+        "-id": "0",
+        "curr": {
+          "-units": "w",
+          "#text": "402.00"
+        },
+        "day": {
+          "-units": "wh",
+          "#text": "4688.50"
+        }
+      },
+      {
+        "-id": "1",
+        "curr": {
+          "-units": "w",
+          "#text": "0.00"
+        },
+        "day": {
+          "-units": "wh",
+          "#text": "0.00"
+        }
+      },
+      {
+        "-id": "2",
+        "curr": {
+          "-units": "w",
+          "#text": "0.00"
+        },
+        "day": {
+          "-units": "wh",
+          "#text": "0.00"
+        }
+      }
+    ]
+  }
+}
+    
+    */
+    
+    
     this.multicastsocket.on("message", function(msg, rinfo) {
         if(rinfo.address != this.owlIP) {
             this.owlIP = rinfo.address;
@@ -55,121 +105,59 @@ function OwlThermostat(log, config) {
         var json = xml.toJson(msg);
         var data = JSON.parse(json);
 
-        if (data.heating) {
-            var zone = data.heating.zones.zone;
+        if (data.electricity) {
+            var chan = data.electricity.chan[0];
 
-            var oldCurrent = this.currentTemperature;
-            var oldTarget = this.targetTemperature;
+            var oldPower = this.currentPower;
+            var oldEnergy = this.currentEnergy;
 
-            this.currentTemperature = parseFloat(zone.temperature.current);
-            this.targetTemperature = parseFloat(zone.temperature.required);
+            this.currentPower = parseFloat(chan.curr);
+            this.currentEnergy = parseFloat(chan.day);
 
-            if (this.currentTemperature != oldCurrent || this.targetTemperature != oldTarget) {
+            if (this.currentPower != oldPower || this.currentEnergy != oldEnergy) {
                 this.log(zone);
 
-                this.log("New Temperatures: %s -> %s", this.currentTemperature, this.targetTemperature);
+                this.log("New Power: %s -> %s", this.oldPower, this.currentPower);
             }
-
-            switch (parseInt(zone.temperature.state)) {
-                case 1: //Comfort (Running)
-                case 7: //Standby (Running)
-                    this.currentHeatingCoolingState = Characteristic.CurrentHeatingCoolingState.HEAT;
-                    this.targetHeatingCoolingState = Characteristic.TargetHeatingCoolingState.HEAT;
-                    break;
-
-                default:
-                    this.currentHeatingCoolingState = Characteristic.CurrentHeatingCoolingState.OFF;
-                    this.targetHeatingCoolingState = Characteristic.TargetHeatingCoolingState.AUTO;
-                    break;
-            }
-
-            this.thermostatService
-                .setCharacteristic(Characteristic.CurrentTemperature, this.currentTemperature)
-                .setCharacteristic(Characteristic.TargetTemperature, this.targetTemperature)
-                .setCharacteristic(Characteristic.CurrentHeatingCoolingState, this.currentHeatingCoolingState)
-                .setCharacteristic(Characteristic.TargetHeatingCoolingState, this.targetHeatingCoolingState);
         }
     }.bind(this));
 }
 
-OwlThermostat.prototype = {
-    getCurrentHeatingCoolingState: function(callback) {
-        this.log("Requested Current Heating/Cooling State: %s", this.currentHeatingCoolingState);
-        callback(null, this.currentHeatingCoolingState);
+OwlPowerMeter.prototype = {
+
+    getCurrentEnergy: function(callback) {
+        this.log("Requested Current Energy: %s", this.currentEnergy);
+        callback(null, this.currentEnergy);
     },
 
-    getTargetHeatingCoolingState: function(callback) {
-        this.log("Requested Target Heating/Cooling State: %s", this.targetHeatingCoolingState);
-        callback(null, this.targetHeatingCoolingState);
-    },
-
-    setTargetHeatingCoolingState: function(value, callback) {
-        if (this.targetHeatingCoolingState != value) {
-            this.log("Set Target Heating/Cooling State: %s", value);
-
-            this.targetHeatingCoolingState = value;
-        }
-
-        callback(null);
-    },
-
-    getCurrentTemperature: function(callback) {
-        this.log("Requested Current Temperature: %s", this.currentTemperature);
-        callback(null, this.currentTemperature);
-    },
-
-    getTargetTemperature: function(callback) {
-        this.log("Requested Target Temperature: %s", this.targetTemperature);
-        callback(null, this.targetTemperature);
-    },
-
-    setTargetTemperature: function(value, callback) {
-        if (this.targetTemperature != value) {
-            this.log("Set Target Temperature: %s", value);
-
-            this.targetTemperature = value;
-        }
-
-        callback(null);
-    },
-
-    getTemperatureDisplayUnits: function(callback) {
-        this.log("Requested Temperature Display Units: %s", this.temperatureDisplayUnits);
-        callback(null, this.temperatureDisplayUnits);
+    getCurrentPower: function(callback) {
+        this.log("Requested Current Power: %s", this.currentPower);
+        callback(null, this.currentPower);
     },
 
     getServices: function() {
+        var EnergyCharacteristics = require('./lib/customCharacteristics').EnergyCharacteristics(Characteristic);
         this.informationService = new Service.AccessoryInformation();
         this.informationService
             .setCharacteristic(Characteristic.Manufacturer, this.manufacturer)
             .setCharacteristic(Characteristic.Model, this.model)
             .setCharacteristic(Characteristic.SerialNumber, this.serial);
+        this.deviceGroup = 'EnergyMeter';
+        var thisCharacteristic;
 
-        this.thermostatService = new Service.Thermostat(this.name);
+        this.energyService = new Service(this.name);
 
         // Required Characteristics
-        this.thermostatService
-            .getCharacteristic(Characteristic.CurrentHeatingCoolingState)
-            .on('get', this.getCurrentHeatingCoolingState.bind(this));
+        thisCharacteristic=this.energyService
+            .addCharacteristic(EnergyCharacteristics.TotalConsumption1);
+        thisCharacteristic.on('get', this.getCurrentEnergy.bind(this));
+        that.platform.addAttributeUsage("energy", this.deviceid, thisCharacteristic);
 
-        this.thermostatService
-            .getCharacteristic(Characteristic.TargetHeatingCoolingState)
-            .on('get', this.getTargetHeatingCoolingState.bind(this))
-            .on('set', this.setTargetHeatingCoolingState.bind(this));
-
-        this.thermostatService
-            .getCharacteristic(Characteristic.CurrentTemperature)
-            .on('get', this.getCurrentTemperature.bind(this));
-
-        this.thermostatService
-            .getCharacteristic(Characteristic.TargetTemperature)
-            .on('get', this.getTargetTemperature.bind(this))
-            .on('set', this.setTargetTemperature.bind(this));
-
-        this.thermostatService
-            .getCharacteristic(Characteristic.TemperatureDisplayUnits)
-            .on('get', this.getTemperatureDisplayUnits.bind(this));
-
-        return [this.informationService, this.thermostatService];
+        thisCharacteristic=this.energyService
+            .addCharacteristic(EnergyCharacteristics.CurrentConsumption1);
+        thisCharacteristic.on('get', this.getCurrentPower.bind(this));
+        that.platform.addAttributeUsage("power", this.deviceid, thisCharacteristic);
+            
+        return [this.informationService, this.energyService];
     }
 };
