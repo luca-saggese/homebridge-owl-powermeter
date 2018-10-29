@@ -11,7 +11,7 @@
     "platforms": [],
 
     "accessories": [{
-        "accessory": "OwlThermostat",
-        "name": "Hallway Thermostat"
+        "accessory": "OwlPowerMetert",
+        "name": "OWL Power Meter"
     }]
 }
